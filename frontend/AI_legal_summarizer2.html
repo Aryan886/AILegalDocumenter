@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Legal Document Summarizer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body,
+    html {
+      height: 100%;
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .app-wrapper {
+      min-height: 100%;
+    }
+
+    .upload-zone {
+      border: 2px dashed #cbd5e1;
+      transition: all 0.3s ease;
+    }
+
+    .upload-zone:hover {
+      border-color: #3b82f6;
+      background-color: #f8fafc;
+    }
+
+    .upload-zone.drag-over {
+      border-color: #3b82f6;
+      background-color: #eff6ff;
+    }
+
+    .file-preview {
+      background-color: #f1f5f9;
+      border-left: 4px solid #3b82f6;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ======================== PAGE 1 ======================== -->
+
+  <div id="page1">
+    <div class="app-wrapper bg-gradient-to-br from-slate-50 to-blue-50 p-8">
+      <div class="max-w-4xl mx-auto">
+
+        <div class="text-center mb-12">
+          <h1 id="mainTitle" class="text-5xl font-bold text-slate-800 mb-4">AI Legal Document Summarizer</h1>
+          <p id="subtitle" class="text-xl text-slate-600">Upload legal documents and get instant AI-powered summaries</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+
+          <!-- Upload Zone -->
+          <div id="uploadZone" class="upload-zone rounded-xl p-12 text-center cursor-pointer">
+            <svg class="mx-auto h-16 w-16 text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            <p id="uploadText" class="text-lg text-slate-700 mb-2">Drag and drop your legal document here</p>
+            <p class="text-sm text-slate-500 mb-4">or</p>
+
+            <label for="fileInput" class="inline-block">
+              <span id="buttonText"
+                class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 cursor-pointer inline-block font-medium">
+                Browse Files
+              </span>
+            </label>
+
+            <input type="file" id="fileInput" class="hidden" accept=".pdf,.doc,.docx,.txt">
+
+            <p class="text-xs text-slate-400 mt-4">Supports PDF, DOC, DOCX, TXT (Max 10MB)</p>
+          </div>
+
+          <!-- File Preview -->
+          <div id="filePreview" class="hidden mt-6 file-preview p-4 rounded-lg">
+            <div class="flex items-center justify-between">
+              <div>
+                <p id="fileName" class="font-medium text-slate-800"></p>
+                <p id="fileSize" class="text-sm text-slate-500"></p>
+              </div>
+              <button id="removeFile" class="text-red-600 hover:text-red-700 font-medium">Remove</button>
+            </div>
+          </div>
+
+          <!-- Buttons -->
+          <div class="flex gap-4 mt-6">
+            <button id="summarizeBtn" disabled
+              class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium disabled:bg-slate-300 disabled:cursor-not-allowed">
+              <span id="summarizeText">Summarize Document</span>
+            </button>
+
+            <button id="clearBtn"
+              class="px-6 py-3 border-2 border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium">
+              <span id="clearText">Clear</span>
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== PAGE 2 ======================== -->
+
+  <div id="page2" class="hidden h-screen flex">
+
+    <!-- LEFT SECTION -->
+    <div class="w-[70%] bg-white p-10 overflow-y-auto border-r border-slate-200">
+
+      <!-- SUMMARY VIEW -->
+      <div id="summaryView">
+        <h2 class="text-3xl font-bold text-slate-800 mb-6">Document Summary</h2>
+        <pre id="summaryContent" class="whitespace-pre-wrap text-lg text-slate-700"></pre>
+      </div>
+
+      <!-- CHAT VIEW -->
+      <div id="chatView" class="hidden">
+        <h2 class="text-3xl font-bold text-slate-800 mb-6">Chat With AI</h2>
+
+        <div id="chatBox" class="h-[70vh] overflow-y-auto p-4 bg-slate-100 rounded-lg mb-4"></div>
+
+        <div class="flex gap-3">
+          <input id="chatInput" type="text"
+            class="flex-1 border border-slate-300 px-4 py-3 rounded-lg"
+            placeholder="Ask anything about your document...">
+          <button id="sendMessage"
+            class="bg-blue-600 text-white px-6 py-3 rounded-lg">Send</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT SECTION -->
+    <div class="w-[30%] bg-slate-50 p-10 flex flex-col justify-center items-center gap-6">
+
+      <button id="toggleView" class="bg-purple-600 text-white px-6 py-3 rounded-lg w-48">
+        Go to Chatting
+      </button>
+
+      <button id="downloadSummary" class="bg-blue-600 text-white px-6 py-3 rounded-lg w-48">
+        Download Summary
+      </button>
+
+      <button id="backButton" class="bg-slate-300 text-slate-800 px-6 py-3 rounded-lg w-48">
+        Back
+      </button>
+
+    </div>
+
+  </div>
+
+  <!-- ======================== SCRIPT ======================== -->
+
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const filePreview = document.getElementById("filePreview");
+    const fileNameEl = document.getElementById("fileName");
+    const fileSizeEl = document.getElementById("fileSize");
+    const removeFileBtn = document.getElementById("removeFile");
+    const summarizeBtn = document.getElementById("summarizeBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const toggleBtn = document.getElementById("toggleView");
+
+    let currentFile = null;
+    let currentSummary = "";
+    let showingChat = false;
+
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      currentFile = file;
+      filePreview.classList.remove("hidden");
+      fileNameEl.textContent = file.name;
+      fileSizeEl.textContent = (file.size / 1024 / 1024).toFixed(2) + " MB";
+      summarizeBtn.disabled = false;
+    });
+
+    removeFileBtn.addEventListener("click", resetFile);
+    clearBtn.addEventListener("click", resetFile);
+
+    function resetFile() {
+      currentFile = null;
+      fileInput.value = "";
+      filePreview.classList.add("hidden");
+      summarizeBtn.disabled = true;
+    }
+
+    summarizeBtn.addEventListener("click", () => {
+      currentSummary = "";
+      document.getElementById("summaryContent").textContent = "";
+
+      document.getElementById("page1").classList.add("hidden");
+      document.getElementById("page2").classList.remove("hidden");
+    });
+
+    document.getElementById("backButton").addEventListener("click", () => {
+      document.getElementById("page2").classList.add("hidden");
+      document.getElementById("page1").classList.remove("hidden");
+    });
+
+    document.getElementById("downloadSummary").addEventListener("click", () => {
+      const blob = new Blob([currentSummary], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "summary.txt";
+      link.click();
+    });
+
+    // ---------------- Toggle Summary <-> Chat ----------------
+    toggleBtn.addEventListener("click", () => {
+      showingChat = !showingChat;
+
+      document.getElementById("summaryView").classList.toggle("hidden");
+      document.getElementById("chatView").classList.toggle("hidden");
+
+      toggleBtn.textContent = showingChat ? "Go to Summary" : "Go to Chatting";
+    });
+
+  </script>
+
+</body>
+
+</html>
