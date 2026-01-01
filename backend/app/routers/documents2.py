@@ -10,21 +10,20 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 
 class DocumentCreate(BaseModel):
     title: str
-    content: str
+    content: str  # Added content field
     filename : Optional[str] = None
 
 class DocumentOut(DocumentCreate):
-    id : int
+    id : int  # Changed from UUID to int to match your DB
     summary : Optional[str] = None
 
-class ChatQuery(BaseModel):
-    query: str
 
-
+#very small in-memory "database" for now - replace with real DB later
 documents_db = {}
 
 @router.post("/", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)
 def create_document(doc_in: DocumentCreate, session: Session = Depends(get_session)):
+    # Create Document object from the input
     doc = Document(
         title=doc_in.title,
         content=doc_in.content,
@@ -79,6 +78,7 @@ def update_summary(
     return doc
 
 
+# NEW ENDPOINT FOR SUMMARIZATION
 @router.post("/{doc_id}/summarize")
 def summarize_document(
     doc_id: int,
@@ -86,11 +86,14 @@ def summarize_document(
 ):
     """
     Summarize a document using its stored content.
+    This endpoint generates a summary and stores it in the document.
     """
+    # Get the document
     doc = session.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     
+    # Get text content from the document
     text_to_summarize = doc.content or ""
     
     if not text_to_summarize:
@@ -99,10 +102,11 @@ def summarize_document(
             detail="Document has no content to summarize"
         )
     
-    #from app.nlp.summarizer import summarize_text_smart
+    # Use the mock summarizer (import here to avoid circular imports)
     from app.nlp.summarizer import summarize_text_mock
     summary = summarize_text_mock(text_to_summarize, "medium")
     
+    # Update document with the summary
     doc.summary = summary
     session.add(doc)
     session.commit()
@@ -113,43 +117,3 @@ def summarize_document(
         "title": doc.title,
         "summary": summary
     }
-
-
-@router.post("/{doc_id}/chat")
-def chat_with_document(
-    doc_id: int,
-    chat: ChatQuery,
-    session: Session = Depends(get_session)
-):
-    """
-    Chat with the document - answer questions based on content
-    """
-    doc = session.get(Document, doc_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-    
-    text = (doc.summary or doc.content or "").lower()
-    query_lower = chat.query.lower()
-    
-    if not text:
-        return {"response": "I don't have any content to answer questions about."}
-    
-    query_words = [w for w in query_lower.split() if len(w) > 3]
-    
-    sentences = []
-    for line in text.split('\n'):
-        sentences.extend([s.strip() + '.' for s in line.split('.') if s.strip()])
-    
-    matches = []
-    for sentence in sentences:
-        sentence_lower = sentence.lower()
-        score = sum(1 for word in query_words if word in sentence_lower)
-        if score > 0:
-            matches.append((score, sentence))
-    
-    if matches:
-        matches.sort(key=lambda x: x[0], reverse=True)
-        best_match = matches[0][1]
-        return {"response": best_match.capitalize()}
-    
-    return {"response": "I couldn't find specific information about that in the document. Try rephrasing your question or asking about different aspects of the document."}
