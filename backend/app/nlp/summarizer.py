@@ -1,5 +1,94 @@
 from typing import Optional
 import re
+from transformers import BartTokenizer, BartForConditionalGeneration
+
+
+#Global model cache (loaded once on a startup)
+
+_model = None
+_tokenizer = None
+
+def get_model():
+    """Lazy load the Bart model (only loads once)"""
+    global _model, _tokenizer
+    if _model is None:
+        print("Loadking BART model...")
+        _tokenizer = BartTokenizer.from_pretrained("facebook/bart-large-cnn")
+        _model = BartForConditionalGeneration.from_pretrained("facebook/bart-large-cnn")
+        print("BART model loaded successfully!!")
+    return _model, _tokenizer
+
+
+def summarize_text_ai(text : str, length : str = "medium") -> str:
+    """
+    AI powereed summarization using T5 model
+    
+    :param text: Description
+    :type text: str
+    :param length: Description
+    :type length: str
+    :return: Description
+    :rtype: str
+    """
+    if not text or len(text.strip()) == 0:
+        return "No text available to summarize"
+    
+    try:
+        model, tokenizer = get_model()
+
+        #Handle long docs
+        max_chunk_length = 800 #words per chunk
+        words = text.split()
+
+        if len(words) > max_chunk_length:
+            #split innto chunks
+            chunks = []
+            for i in range(0, len(words) ,max_chunk_length):
+                chunk = " ".join(words[i : i+ max_chunk_length])
+                chunks.append(chunk)
+
+            # Summarize each chunk
+            summaries = []
+            for chunk in chunks[:5]: #Max 3 chunks for speedy summary
+                #input_text = "summarize : " + chunk
+                inputs = tokenizer(text, return_tensors="pt", max_length = 512, truncation=True)
+
+                summary_ids = model.generate(
+                    inputs["inputs_ids"],
+                    max_length = 200,
+                    min_length = 50,
+                    length_penalty = 2.0,
+                    num_beams = 4,
+                    early_stopping = True
+                )
+
+                summary = tokenizer.decode(summary_ids[0], skip_special_tokens = True)
+                summaries.append(summary)
+
+            return "\n\n".join(summaries) + "\n\n---\n AI-Generated Summary "
+         
+        else:
+            #Single chunk
+
+            #input_text = "summarize : " + text
+            inputs = tokenizer(text, return_tensors = "pt", max_length = 512, truncation= True)
+            
+            summary_ids = model.generate(
+                inputs["input_ids"],
+                max_length=250,
+                min_length=60,
+                length_penalty=2.0,
+                num_beams=4,
+                early_stopping=True
+            )
+
+            summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+            return summary + "\n\n---\n🤖 AI-Generated Summary"
+    
+    except Exception as e:
+        print(f"AI summarization failed : {e}")
+        return summarize_text_mock(text, length)
+
 
 def summarize_text_smart(text: str, length: str = "medium") -> str:
     """

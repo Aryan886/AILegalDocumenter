@@ -100,8 +100,8 @@ def summarize_document(
         )
     
     #from app.nlp.summarizer import summarize_text_smart
-    from app.nlp.summarizer import summarize_text_mock
-    summary = summarize_text_mock(text_to_summarize, "medium")
+    from app.nlp.summarizer import summarize_text_ai
+    summary = summarize_text_ai(text_to_summarize, "medium")
     
     doc.summary = summary
     session.add(doc)

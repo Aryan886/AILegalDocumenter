@@ -5,13 +5,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Legal Document Summarizer</title>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body,
     html {
       height: 100%;
       margin: 0;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
     .app-wrapper {
@@ -37,23 +38,60 @@
       background-color: #f1f5f9;
       border-left: 4px solid #3b82f6;
     }
+
+    .loading-spinner {
+      border: 3px solid #f3f4f6;
+      border-top: 3px solid #3b82f6;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .summary-content {
+      line-height: 1.8;
+      font-size: 1.05rem;
+    }
+
+    .chat-message {
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
   </style>
 </head>
 
 <body>
 
-  <!-- ======================== PAGE 1 ======================== -->
+  <!-- ======================== PAGE 1: UPLOAD ======================== -->
 
   <div id="page1">
-    <div class="app-wrapper bg-gradient-to-br from-slate-50 to-blue-50 p-8">
+    <div class="app-wrapper bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-8 min-h-screen">
       <div class="max-w-4xl mx-auto">
 
-        <div class="text-center mb-12">
-          <h1 id="mainTitle" class="text-5xl font-bold text-slate-800 mb-4">AI Legal Document Summarizer</h1>
-          <p id="subtitle" class="text-xl text-slate-600">Upload legal documents and get instant AI-powered summaries</p>
+        <div class="text-center mb-12 mt-8">
+          <div class="mb-4">
+            <span class="text-6xl">⚖️</span>
+          </div>
+          <h1 class="text-6xl font-bold text-slate-800 mb-4 tracking-tight">AI Legal Document Summarizer</h1>
+          <p class="text-xl text-slate-600">Upload legal documents and get instant AI-powered summaries</p>
         </div>
 
-        <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 mb-8">
 
           <!-- Upload Zone -->
           <div id="uploadZone" class="upload-zone rounded-xl p-12 text-center cursor-pointer">
@@ -61,12 +99,11 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
             </svg>
-            <p id="uploadText" class="text-lg text-slate-700 mb-2">Drag and drop your legal document here</p>
+            <p class="text-lg text-slate-700 mb-2 font-medium">Drag and drop your legal document here</p>
             <p class="text-sm text-slate-500 mb-4">or</p>
 
             <label for="fileInput" class="inline-block">
-              <span id="buttonText"
-                class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 cursor-pointer inline-block font-medium">
+              <span class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 cursor-pointer inline-block font-medium transition-colors shadow-md hover:shadow-lg">
                 Browse Files
               </span>
             </label>
@@ -79,85 +116,125 @@
           <!-- File Preview -->
           <div id="filePreview" class="hidden mt-6 file-preview p-4 rounded-lg">
             <div class="flex items-center justify-between">
-              <div>
-                <p id="fileName" class="font-medium text-slate-800"></p>
-                <p id="fileSize" class="text-sm text-slate-500"></p>
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">📄</span>
+                <div>
+                  <p id="fileName" class="font-medium text-slate-800"></p>
+                  <p id="fileSize" class="text-sm text-slate-500"></p>
+                </div>
               </div>
-              <button id="removeFile" class="text-red-600 hover:text-red-700 font-medium">Remove</button>
+              <button type="button" id="removeFile" class="text-red-600 hover:text-red-700 font-medium transition-colors">Remove</button>
             </div>
           </div>
 
           <!-- Buttons -->
           <div class="flex gap-4 mt-6">
-            <button id="summarizeBtn" disabled
-              class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium disabled:bg-slate-300 disabled:cursor-not-allowed">
-              <span id="summarizeText">Summarize Document</span>
+            <button id="summarizeBtn" type="button" disabled
+              class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium disabled:bg-slate-300 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg">
+              <span id="summarizeText">✨ Summarize Document</span>
             </button>
 
-            <button id="clearBtn"
-              class="px-6 py-3 border-2 border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium">
-              <span id="clearText">Clear</span>
+            <button id="clearBtn" type="button"
+              class="px-6 py-3 border-2 border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors">
+              Clear
             </button>
           </div>
 
+        </div>
+
+        <div class="text-center text-slate-500 text-sm">
+          <p>🔒 Your documents are processed securely and not stored permanently</p>
         </div>
 
       </div>
     </div>
   </div>
 
-  <!-- ======================== PAGE 2 ======================== -->
+  <!-- ======================== PAGE 2: RESULTS ======================== -->
 
   <div id="page2" class="hidden h-screen flex">
 
     <!-- LEFT SECTION -->
     <div class="w-[70%] bg-white p-10 overflow-y-auto border-r border-slate-200">
 
+      <!-- LOADING STATE -->
+      <div id="loadingView" class="hidden text-center py-20">
+        <div class="loading-spinner mx-auto mb-4"></div>
+        <p class="text-slate-600 text-lg">Processing your document...</p>
+        <p class="text-slate-400 text-sm mt-2">Extracting text and generating  AI powered summary</p>
+      </div>
+
       <!-- SUMMARY VIEW -->
       <div id="summaryView">
-        <h2 class="text-3xl font-bold text-slate-800 mb-6">Document Summary</h2>
-        <pre id="summaryContent" class="whitespace-pre-wrap text-lg text-slate-700"></pre>
+        <div class="mb-6 flex items-center justify-between">
+          <h2 class="text-3xl font-bold text-slate-800">📋 Document Summary</h2>
+          <span id="docTitle" class="text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full"></span>
+        </div>
+        <div class="bg-slate-50 rounded-xl p-6 border border-slate-200">
+          <pre id="summaryContent" class="summary-content whitespace-pre-wrap text-slate-700"></pre>
+        </div>
       </div>
 
       <!-- CHAT VIEW -->
       <div id="chatView" class="hidden">
-        <h2 class="text-3xl font-bold text-slate-800 mb-6">Chat With AI</h2>
+        <div class="mb-6">
+          <h2 class="text-3xl font-bold text-slate-800">💬 Chat With AI</h2>
+          <p class="text-slate-500 mt-2">Ask questions about your document</p>
+        </div>
 
-        <div id="chatBox" class="h-[70vh] overflow-y-auto p-4 bg-slate-100 rounded-lg mb-4"></div>
+        <div id="chatBox" class="h-[60vh] overflow-y-auto p-4 bg-slate-50 rounded-lg mb-4 border border-slate-200"></div>
 
         <div class="flex gap-3">
           <input id="chatInput" type="text"
-            class="flex-1 border border-slate-300 px-4 py-3 rounded-lg"
-            placeholder="Ask anything about your document...">
+            class="flex-1 border-2 border-slate-300 px-4 py-3 rounded-lg focus:outline-none focus:border-blue-500 transition-colors"
+            placeholder="Ask anything about your document..."
+            onkeypress="if(event.key === 'Enter') document.getElementById('sendMessage').click()">
           <button id="sendMessage"
-            class="bg-blue-600 text-white px-6 py-3 rounded-lg">Send</button>
+            class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg font-medium">
+            Send
+          </button>
         </div>
       </div>
 
     </div>
 
     <!-- RIGHT SECTION -->
-    <div class="w-[30%] bg-slate-50 p-10 flex flex-col justify-center items-center gap-6">
+    <div class="w-[30%] bg-gradient-to-br from-slate-50 to-slate-100 p-10 flex flex-col justify-center items-center gap-6">
 
-      <button id="toggleView" class="bg-purple-600 text-white px-6 py-3 rounded-lg w-48">
-        Go to Chatting
+      <div class="text-center mb-4">
+        <div class="text-5xl mb-3">⚡</div>
+        <h3 class="text-xl font-bold text-slate-700">Quick Actions</h3>
+      </div>
+
+      <button id="toggleView" class="bg-purple-600 text-white px-6 py-3 rounded-lg w-64 hover:bg-purple-700 transition-all shadow-md hover:shadow-lg font-medium">
+        💬 Go to Chatting
       </button>
 
-      <button id="downloadSummary" class="bg-blue-600 text-white px-6 py-3 rounded-lg w-48">
-        Download Summary
+      <button id="downloadSummary" class="bg-blue-600 text-white px-6 py-3 rounded-lg w-64 hover:bg-blue-700 transition-all shadow-md hover:shadow-lg font-medium">
+        ⬇️ Download Summary
       </button>
 
-      <button id="backButton" class="bg-slate-300 text-slate-800 px-6 py-3 rounded-lg w-48">
-        Back
+      <button id="backButton" class="bg-slate-300 text-slate-800 px-6 py-3 rounded-lg w-64 hover:bg-slate-400 transition-all shadow-md hover:shadow-lg font-medium">
+        ← Back to Upload
       </button>
+
+      <div class="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200 text-sm text-slate-600">
+        <p class="font-semibold mb-2">💡 Pro Tips:</p>
+        <ul class="space-y-1 text-xs">
+          <li>• Use chat to ask specific questions</li>
+          <li>• Download summary for later reference</li>
+          <li>• Upload multiple documents to compare</li>
+        </ul>
+      </div>
 
     </div>
 
   </div>
 
   <!-- ======================== SCRIPT ======================== -->
-
+  
   <script>
+    const API_BASE = "http://127.0.0.1:8000";
     const fileInput = document.getElementById("fileInput");
     const filePreview = document.getElementById("filePreview");
     const fileNameEl = document.getElementById("fileName");
@@ -166,9 +243,15 @@
     const summarizeBtn = document.getElementById("summarizeBtn");
     const clearBtn = document.getElementById("clearBtn");
     const toggleBtn = document.getElementById("toggleView");
+    const loadingView = document.getElementById("loadingView");
+    const summaryView = document.getElementById("summaryView");
+    const chatInput = document.getElementById("chatInput");
+    const sendMessage = document.getElementById("sendMessage");
+    const chatBox = document.getElementById("chatBox");
 
     let currentFile = null;
     let currentSummary = "";
+    let currentDocId = null;
     let showingChat = false;
 
     fileInput.addEventListener("change", (e) => {
@@ -192,35 +275,156 @@
       summarizeBtn.disabled = true;
     }
 
-    summarizeBtn.addEventListener("click", () => {
-      currentSummary = "";
-      document.getElementById("summaryContent").textContent = "";
+    summarizeBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      
+      if (!currentFile) return;
 
+      summarizeBtn.disabled = true;
+      
+      // Switch to page 2 and show loading
       document.getElementById("page1").classList.add("hidden");
       document.getElementById("page2").classList.remove("hidden");
+      loadingView.classList.remove("hidden");
+      summaryView.classList.add("hidden");
+
+      try {
+        // File upload
+        const formData = new FormData();
+        formData.append("file", currentFile);
+
+        const uploadRes = await fetch(`${API_BASE}/uploads/`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error(`Upload failed: ${uploadRes.status}`);
+        }
+
+        const uploadData = await uploadRes.json();
+
+        // Create Document
+        const docRes = await fetch(`${API_BASE}/documents/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: currentFile.name,
+            content: uploadData.extracted_text || "No text extracted",
+          }),
+        });
+
+        if (!docRes.ok) {
+          throw new Error(`Document creation failed: ${docRes.status}`);
+        }
+
+        const docData = await docRes.json();
+        currentDocId = docData.id;
+
+        // Summarize document
+        const summaryRes = await fetch(
+          `${API_BASE}/documents/${docData.id}/summarize`,
+          { method: "POST" }
+        );
+
+        if (!summaryRes.ok) {
+          throw new Error(`Summarization failed: ${summaryRes.status}`);
+        }
+
+        const summaryData = await summaryRes.json();
+        console.log("Summary data received:", summaryData);  // ADD THIS
+
+        if (!summaryData || !summaryData.summary) {
+          throw new Error(`Summary missing. Got: ${JSON.stringify(summaryData)}`);
+        }
+        currentSummary = summaryData.summary;
+
+        //await new Promise(resolve => setTimeout(resolve, 9000)); // 9 second delay
+
+        // Show summary
+        loadingView.classList.add("hidden");
+        summaryView.classList.remove("hidden");
+        document.getElementById("summaryContent").textContent = currentSummary;
+        document.getElementById("docTitle").textContent = currentFile.name;
+        
+      } catch(err) {
+        loadingView.classList.add("hidden");
+        summaryView.classList.remove("hidden");
+        document.getElementById("summaryContent").textContent = 
+          `❌ Error: ${err.message}\n\nPlease try again or check the console for details.`;
+        console.error("Full error:", err);
+      } finally {
+        summarizeBtn.disabled = false;
+      }
     });
 
-    document.getElementById("backButton").addEventListener("click", () => {
+    // Chat functionality
+    sendMessage.addEventListener("click", async () => {
+      const query = chatInput.value.trim();
+      if (!query || !currentDocId) return;
+
+      // Add user message
+      const userMsg = document.createElement("div");
+      userMsg.className = "mb-3 text-right chat-message";
+      userMsg.innerHTML = `<span class="bg-blue-500 text-white px-4 py-2 rounded-lg inline-block max-w-md">${query}</span>`;
+      chatBox.appendChild(userMsg);
+      
+      chatInput.value = "";
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      try {
+        const res = await fetch(`${API_BASE}/documents/${currentDocId}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query })
+        });
+
+        const data = await res.json();
+        
+        // Add AI response
+        const aiMsg = document.createElement("div");
+        aiMsg.className = "mb-3 chat-message";
+        aiMsg.innerHTML = `<span class="bg-slate-200 text-slate-800 px-4 py-2 rounded-lg inline-block max-w-md">${data.response}</span>`;
+        chatBox.appendChild(aiMsg);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      } catch(err) {
+        const errorMsg = document.createElement("div");
+        errorMsg.className = "mb-3 chat-message";
+        errorMsg.innerHTML = `<span class="bg-red-200 text-red-800 px-4 py-2 rounded-lg inline-block max-w-md">Error: ${err.message}</span>`;
+        chatBox.appendChild(errorMsg);
+      }
+    });
+
+    document.getElementById("backButton").addEventListener("click", (e) => {
+      e.preventDefault();
       document.getElementById("page2").classList.add("hidden");
       document.getElementById("page1").classList.remove("hidden");
+      
+      // Reset chat
+      chatBox.innerHTML = "";
+      showingChat = false;
+      summaryView.classList.remove("hidden");
+      document.getElementById("chatView").classList.add("hidden");
+      toggleBtn.textContent = "💬 Go to Chatting";
     });
 
-    document.getElementById("downloadSummary").addEventListener("click", () => {
+    document.getElementById("downloadSummary").addEventListener("click", (e) => {
+      e.preventDefault();
       const blob = new Blob([currentSummary], { type: "text/plain" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = "summary.txt";
+      link.download = `summary-${Date.now()}.txt`;
       link.click();
     });
 
-    // ---------------- Toggle Summary <-> Chat ----------------
-    toggleBtn.addEventListener("click", () => {
+    toggleBtn.addEventListener("click", (e) => {
+      e.preventDefault();
       showingChat = !showingChat;
 
-      document.getElementById("summaryView").classList.toggle("hidden");
+      summaryView.classList.toggle("hidden");
       document.getElementById("chatView").classList.toggle("hidden");
 
-      toggleBtn.textContent = showingChat ? "Go to Summary" : "Go to Chatting";
+      toggleBtn.textContent = showingChat ? "📋 Go to Summary" : "💬 Go to Chatting";
     });
 
   </script>
