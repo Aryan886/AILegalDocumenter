@@ -1,7 +1,8 @@
 from typing import Optional
 import re
 from transformers import BartTokenizer, BartForConditionalGeneration
-
+import gc
+import torch 
 
 #Global model cache (loaded once on a startup)
 
@@ -13,8 +14,8 @@ def get_model():
     global _model, _tokenizer
     if _model is None:
         print("Loadking BART model...")
-        _tokenizer = BartTokenizer.from_pretrained("facebook/bart-large-cnn")
-        _model = BartForConditionalGeneration.from_pretrained("facebook/bart-large-cnn")
+        _tokenizer = BartTokenizer.from_pretrained("sshleifer/distilbart-cnn-12-6")
+        _model = BartForConditionalGeneration.from_pretrained("sshleifer/distilbart-cnn-12-6")
         print("BART model loaded successfully!!")
     return _model, _tokenizer
 
@@ -37,7 +38,7 @@ def summarize_text_ai(text : str, length : str = "medium") -> str:
         model, tokenizer = get_model()
 
         #Handle long docs
-        max_chunk_length = 800 #words per chunk
+        max_chunk_length = 450 #words per chunk
         words = text.split()
 
         if len(words) > max_chunk_length:
@@ -51,10 +52,10 @@ def summarize_text_ai(text : str, length : str = "medium") -> str:
             summaries = []
             for chunk in chunks[:5]: #Max 3 chunks for speedy summary
                 #input_text = "summarize : " + chunk
-                inputs = tokenizer(text, return_tensors="pt", max_length = 512, truncation=True)
+                inputs = tokenizer(chunk, return_tensors="pt", max_length = 512, truncation=True)
 
                 summary_ids = model.generate(
-                    inputs["inputs_ids"],
+                    inputs["input_ids"],
                     max_length = 200,
                     min_length = 50,
                     length_penalty = 2.0,
@@ -84,7 +85,7 @@ def summarize_text_ai(text : str, length : str = "medium") -> str:
 
             summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
             return summary + "\n\n---\n🤖 AI-Generated Summary"
-    
+        
     except Exception as e:
         print(f"AI summarization failed : {e}")
         return summarize_text_mock(text, length)
