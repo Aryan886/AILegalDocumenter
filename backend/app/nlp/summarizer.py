@@ -20,75 +20,184 @@ def get_model():
     return _model, _tokenizer
 
 
-def summarize_text_ai(text : str, length : str = "medium") -> str:
+def extract_legal_sections(text: str):
     """
-    AI powereed summarization using T5 model
-    
-    :param text: Description
-    :type text: str
-    :param length: Description
-    :type length: str
-    :return: Description
-    :rtype: str
+    Segragating before summarizing : 
     """
+    sections = {
+        "issues": [],
+        "facts": [],
+        "reasoning": [],
+        "directions": []
+    }
+
+    lines = text.split("\n")
+
+    for line in lines:
+        l = line.lower()
+
+        if any(k in l for k in ["issue", "petition", "writ", "challenge", "claims"]):
+            sections["issues"].append(line)
+
+        elif any(k in l for k in ["background", "facts", "leased", "declared", "forest", "bbtcl"]):
+            sections["facts"].append(line)
+
+        elif any(k in l for k in ["we hold", "we consider", "therefore", "in view of", "court"]):
+            sections["reasoning"].append(line)
+
+        elif any(k in l for k in [
+            "we direct", "cec", "shall", "is directed", "12 weeks",
+            "listed on", "survey", "report", "restoration"
+        ]):
+            sections["directions"].append(line)
+
+    return sections
+
+
+def chunk_by_tokens(text, tokenizer, max_tokens=900):
+    """Chunks text by sentences to avoid enconding entire doc at once"""
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+
+    chunks = []
+    current_chunk = []
+    current_length = 0
+
+    for sentence in sentences:
+        #Encode just the sentence
+        sent_tokens = tokenizer.encode(sentence, truncation=True, max_length=max_tokens)
+        sent_length = len(sent_tokens)
+
+        #If adding this sentence exceed limit, save current chunk
+        if current_length + sent_length > max_tokens and current_chunk:
+            chunk_text = ' '.join(current_chunk)
+            chunks.append(chunk_text)
+            #Keep last sentence for context overlapping
+            current_chunk = [current_chunk[-1]] if current_chunk else []
+            current_length = len(tokenizer.encode(current_chunk[0])) if current_chunk else 0
+
+        current_chunk.append(sentence)
+        current_length += sent_length
+
+    #Add final chunk
+    if current_chunk:
+        chunks.append(' '.join(current_chunk))
+
+    return chunks
+
+def extract_directions_verbatim(text):
+    directions = []
+    lines = text.split("\n")
+
+    capture = False
+    para_pattern = re.compile(r'^\d+\.\s')
+    for line in lines:
+        l = line.lower().strip()
+
+        # Start capturing after court begins issuing directions
+        if any(k in l for k in ["we hereby direct", "we direct", "in view of", "it is directed"]):
+            capture = True
+
+        if capture:
+            if para_pattern.match(line.strip()) and any(k in l for k in [
+                "cec", "shall", "directed", "granted", "listed", "survey", "list on", "listed on"
+            ]):
+                if len(l) > 20:
+                    directions.append(line.strip())
+                    continue
+            if any(k in l for k in [
+                "cec", "shall", "weeks", "listed on",
+                "survey", "report", "rehabilitation",
+                "restoration", "time is granted","appeal allowed",
+                "appeal dismissed","judgment reversed",
+                "set aside","deduction disallowed","assessee not entitled",
+                "high court erred"
+
+            ]):
+                if len(l) > 20:   # avoid headings
+                    directions.append(line.strip())
+
+    # Remove duplicates
+    return list(dict.fromkeys(directions))
+
+
+
+def summarize_text_ai(text: str, length: str = "medium") -> str:
     if not text or len(text.strip()) == 0:
-        return "No text available to summarize"
-    
+        return "No text available to summarize."
+
     try:
         model, tokenizer = get_model()
 
-        #Handle long docs
-        max_chunk_length = 450 #words per chunk
-        words = text.split()
+        # 1. Extract binding court directions (verbatim)
+        directions = extract_directions_verbatim(text)
+        #chunks = chunk_by_tokens(clean_text, tokenizer, max_tokens=900)
 
-        if len(words) > max_chunk_length:
-            #split innto chunks
-            chunks = []
-            for i in range(0, len(words) ,max_chunk_length):
-                chunk = " ".join(words[i : i+ max_chunk_length])
-                chunks.append(chunk)
 
-            # Summarize each chunk
-            summaries = []
-            for chunk in chunks[:5]: #Max 3 chunks for speedy summary
-                #input_text = "summarize : " + chunk
-                inputs = tokenizer(chunk, return_tensors="pt", max_length = 512, truncation=True)
+        # 2. Remove directions from AI input
+        clean_text = text
+        for d in directions:
+            clean_text = clean_text.replace(d, "")
 
-                summary_ids = model.generate(
-                    inputs["input_ids"],
-                    max_length = 200,
-                    min_length = 50,
-                    length_penalty = 2.0,
-                    num_beams = 4,
-                    early_stopping = True
-                )
+        # 3. Summarize only the non-binding background
+        chunks = chunk_by_tokens(clean_text, tokenizer, max_tokens=900)
 
-                summary = tokenizer.decode(summary_ids[0], skip_special_tokens = True)
-                summaries.append(summary)
+        summaries = []
+        for chunk in chunks[:5]:   # safety limit
+            inputs = tokenizer(chunk, return_tensors="pt", truncation=True, max_length=1024)
 
-            return "\n\n".join(summaries) + "\n\n---\n AI-Generated Summary "
-         
-        else:
-            #Single chunk
-
-            #input_text = "summarize : " + text
-            inputs = tokenizer(text, return_tensors = "pt", max_length = 512, truncation= True)
-            
             summary_ids = model.generate(
                 inputs["input_ids"],
-                max_length=250,
-                min_length=60,
-                length_penalty=2.0,
+                max_length=220,
+                min_length=100,
                 num_beams=4,
+                length_penalty=1.5,
                 early_stopping=True
             )
 
-            summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-            return summary + "\n\n---\n🤖 AI-Generated Summary"
+            summaries.append(tokenizer.decode(summary_ids[0], skip_special_tokens=True))
+
+        combined = " ".join(summaries)
         
+        # 4. Final refinement pass
+        if len(combined.split()) > 400:
+            final_input = tokenizer(
+                "Summarize this legal judgement concisely, preserving key facts and reasoning:\n" + combined,
+                return_tensors = "pt",
+                truncation=True,
+                max_length=1024
+            )
+
+            final_ids = model.generate(
+                final_input["input_ids"],
+                max_length = 250,
+                min_length = 150,
+                num_beams = 4,
+                length_penalty = 1.2
+            )
+            final_summary = tokenizer.decode(final_ids[0], skip_special_tokens=True)
+
+        else:
+            final_summary = combined
+        # 5. Attach binding court order verbatim
+        return f"""
+            CASE SUMMARY
+
+            {final_summary}
+
+            ---
+
+            COURT DIRECTIONS (Binding Order)
+
+            """ + "\n".join("• " + d for d in directions) + """
+
+            ---
+            🤖 AI-Legal-Documenter
+            """
+
     except Exception as e:
         print(f"AI summarization failed : {e}")
         return summarize_text_mock(text, length)
+
 
 
 def summarize_text_smart(text: str, length: str = "medium") -> str:
@@ -209,6 +318,10 @@ def summarize_text_mock(text: str, length: str = "short") -> str:
         return text
     
     return text[:char_limit] + "..."
+
+
+
+
 
 
 # For future: Real AI-powered summarization
