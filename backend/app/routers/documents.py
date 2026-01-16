@@ -122,34 +122,121 @@ def chat_with_document(
     session: Session = Depends(get_session)
 ):
     """
-    Chat with the document - answer questions based on content
+    Chat with the document - answer questions based on content and summary
     """
     doc = session.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     
-    text = (doc.summary or doc.content or "").lower()
-    query_lower = chat.query.lower()
+    # Use both content and summary for better responses
+    full_text = (doc.content or "") + "\n" + (doc.summary or "")
     
-    if not text:
-        return {"response": "I don't have any content to answer questions about."}
+    if not full_text.strip():
+        return {"response": "I don't have any content to answer questions about yet. Please wait for the document to be processed."}
     
-    query_words = [w for w in query_lower.split() if len(w) > 3]
+    query = chat.query.strip()
+    query_lower = query.lower()
     
+    # Handle common greetings
+    greetings = ["hi", "hello", "hey", "good morning", "good afternoon", "good evening"]
+    if query_lower in greetings:
+        return {"response": "Hello! I'm here to help you understand this legal document. What would you like to know?"}
+    
+    # Handle thank you
+    if any(word in query_lower for word in ["thank", "thanks", "thx"]):
+        return {"response": "You're welcome! Feel free to ask if you have more questions about the document."}
+    
+    # Handle general document questions
+    if any(phrase in query_lower for phrase in ["what is this about", "what's this about", "summarize", "summary", "overview"]):
+        if doc.summary:
+            # Return first 500 chars of summary
+            summary_preview = doc.summary[:500] + "..." if len(doc.summary) > 500 else doc.summary
+            return {"response": f"This document is about: {summary_preview}"}
+        return {"response": "This is a legal document. The full summary is still being processed."}
+    
+    # Handle "who", "what", "when", "where", "why", "how" questions
+    question_keywords = {
+        "who": ["party", "parties", "plaintiff", "defendant", "petitioner", "respondent", "appellant", "court"],
+        "what": ["issue", "matter", "case", "claim", "relief", "prayer", "subject"],
+        "when": ["date", "dated", "filed", "passed", "delivered", "year", "month"],
+        "where": ["court", "tribunal", "location", "place", "jurisdiction"],
+        "why": ["reason", "ground", "basis", "cause", "therefore", "because"],
+        "how": ["procedure", "process", "method", "manner"]
+    }
+    
+    # Detect question type
+    question_type = None
+    for qtype in question_keywords.keys():
+        if query_lower.startswith(qtype):
+            question_type = qtype
+            break
+    
+    # Extract relevant sentences
     sentences = []
-    for line in text.split('\n'):
-        sentences.extend([s.strip() + '.' for s in line.split('.') if s.strip()])
+    for line in full_text.split('\n'):
+        line = line.strip()
+        if len(line) > 20:  # Ignore very short lines
+            sentences.append(line)
+    
+    # Score sentences based on query relevance
+    query_words = [w.lower() for w in query_lower.split() if len(w) > 3]
+    
+    if question_type:
+        # Add question-specific keywords to search
+        query_words.extend(question_keywords[question_type])
     
     matches = []
     for sentence in sentences:
         sentence_lower = sentence.lower()
-        score = sum(1 for word in query_words if word in sentence_lower)
+        # Score based on keyword matches
+        score = sum(2 if word in sentence_lower else 0 for word in query_words)
+        
+        # Boost score for question-specific keywords
+        if question_type:
+            for keyword in question_keywords[question_type]:
+                if keyword in sentence_lower:
+                    score += 3
+        
         if score > 0:
             matches.append((score, sentence))
     
+    # Return best matches
     if matches:
         matches.sort(key=lambda x: x[0], reverse=True)
-        best_match = matches[0][1]
-        return {"response": best_match.capitalize()}
+        
+        # Return top 2-3 relevant sentences
+        top_matches = matches[:3]
+        response_parts = []
+        
+        for _, sentence in top_matches:
+            # Clean up the sentence
+            clean_sentence = sentence.strip()
+            if clean_sentence and not clean_sentence.startswith('---'):
+                response_parts.append(clean_sentence)
+        
+        if response_parts:
+            response = " ".join(response_parts[:2])  # Return max 2 sentences
+            # Limit response length
+            if len(response) > 400:
+                response = response[:400] + "..."
+            return {"response": response}
     
-    return {"response": "I couldn't find specific information about that in the document. Try rephrasing your question or asking about different aspects of the document."}
+    # Fallback responses based on common legal terms in query
+    legal_terms = {
+        "direction": "The court directions are outlined in the summary. Please check the 'Court Directions' section.",
+        "appeal": "Information about the appeal can be found in the document summary.",
+        "judgment": "The judgment details are available in the document summary above.",
+        "order": "The court order is documented in the summary section.",
+        "penalty": "Penalty or punishment details should be in the court's final directions.",
+        "compensation": "Compensation details, if any, are mentioned in the court directions.",
+        "damages": "Damage amounts, if specified, are in the court's order section."
+    }
+    
+    for term, response in legal_terms.items():
+        if term in query_lower:
+            return {"response": response}
+    
+    # Final fallback
+    return {
+        "response": "I couldn't find specific information about that in the document. Try asking about the parties involved, court directions, or the main issues of the case."
+    }

@@ -320,10 +320,6 @@ def summarize_text_mock(text: str, length: str = "short") -> str:
     return text[:char_limit] + "..."
 
 
-
-
-
-
 # For future: Real AI-powered summarization
 """
 from transformers import pipeline
